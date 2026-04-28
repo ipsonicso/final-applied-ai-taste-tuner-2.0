@@ -1,0 +1,28 @@
+Original
++ RAG =	searches for music of specific genre
+- No likes system
+-
+New Plan
+1) RAG = searches for genre AND similar
+2) likes system 
+3) playlist for feature focus (bpm, energy, genre, artist)
+
+
+**REQUIRED FEATURES**
+1) Clear Identification of the Base Project
+2) New AI feature added - Improve RAG / behavior?
+	a) one substantial AI feature such as RAG - way to search more detailed
+	b) integrated into system - 
+3) system arch diagram
+	a) Diagram shows major components (UI/CLI, retrieval, agent, evaluator, database, etc.).
+	b) Diagram clearly illustrates data flow (input → processing steps → output).
+	c) Diagram matches actual project implementation
+
+4) Functional End-to-End System Demonstration
+	a) working script or UI full system workflow
+	b) 2-3 example inputs
+
+**Stretch/specific**
+1) RAG Enhancement: Custom Indexing or Multi-Source Retrieval
+
+2) Fine-Tuning or Specialization Behavior -- Specialized model behavior (few-shot patterns, synthetic datasets, or constrained tone/style) is demonstrated.
