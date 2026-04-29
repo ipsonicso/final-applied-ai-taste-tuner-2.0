@@ -45,15 +45,18 @@
 1) Taking user input for taste profile
 2) 1) **Advantages:** Allows to test a wider range of options and experiment with managing user queries. It also provides a full experience of an easy-to-use recommender in this enclosed model.
    2) **Tradeoffs:** have to rework for more practical implementations, where work
-
+      
 3) API integration
-4) 1) **Advantages:** *possibly allow for more user input, build up personal dictionary emulating LLMs. 
-   2) **Tradeoffs:** *probably slow, depends on online element, workarounds by building local dictionary would not scale well for a small-budget project.
+4) 1) **Advantages:** *possibly allow for more user input, build up personal dictionary emulating LLMs.
+   3) **Tradeoffs:** *probably slow, depends on online element, workarounds by building local dictionary would not scale well for a small-budget project.
+   
+  
 
 ### Testing Summary 
     Testing Summary: What worked, what didn't, and what you learned.
-
+1) I originally planned to use a useful feature that didn't work (tag comparison), so I used a workaround, importing real song info, approximating stats by the program's metrics, and compare artist tags on artists' profiles instead.
+2) I was ambitious in my use of API, but I'm happy I could make it work despite flaws in the. In a practical model, I may use a better quality API more relevant to my needs.
+ 
 ### Reflection
-    Reflection: What this project taught you about AI and problem-solving.
   
-  
+The AI was great for bouncing ideas off, when I had a good idea, it would give me possible paths to continue down. Still, it was vital to be able to keep it on track and reiterate what I wanted. When I felt at a loss for a technical description, I could give it detailed instructions on how I want it to behave, ask it to repeat its understanding until it matched what I wanted, then have it implement these choices.
