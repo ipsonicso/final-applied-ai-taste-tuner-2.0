@@ -41,7 +41,14 @@
     Sample Interactions: Include at least 2-3 examples of inputs and the resulting AI outputs to demonstrate the system is functional.
 ### Design Decisiions
     Design Decisions: Why you built it this way, and what trade-offs you made.
-    
+
+1) Taking user input for taste profile
+2) 1) **Advantages:** Allows to test a wider range of options and experiment with managing user queries. It also provides a full experience of an easy-to-use recommender in this enclosed model.
+   2) **Tradeoffs:** have to rework for more practical implementations, where work
+
+3) API integration
+4) 1) **Advantages:** *possibly allow for more user input, build up personal dictionary emulating LLMs. 
+   2) **Tradeoffs:** *probably slow, depends on online element, workarounds by building local dictionary would not scale well for a small-budget project.
 
 ### Testing Summary 
     Testing Summary: What worked, what didn't, and what you learned.
