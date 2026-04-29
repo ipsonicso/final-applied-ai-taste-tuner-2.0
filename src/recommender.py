@@ -26,12 +26,95 @@ class GenreSimilarityEngine:
     Displays errors from Last.fm API to user instead of silently failing.
     """
 
-    def __init__(self, use_lastfm: bool = False, lastfm_api_key: Optional[str] = None, cache_file: str = "genre_cache.json"):
+    def __init__(
+        self,
+        use_lastfm: bool = False,
+        lastfm_api_key: Optional[str] = None,
+        cache_file: str = "genre_cache.json",
+        catalog_songs: Optional[List[Dict]] = None,
+        use_cached_similarity: bool = False,
+        use_live_similarity: bool = False,
+    ):
         self.use_lastfm = use_lastfm
         self.lastfm_api_key = lastfm_api_key
         self.cache_file = cache_file
+        self.use_cached_similarity = use_cached_similarity
+        self.use_live_similarity = use_live_similarity
         self.cache = self._load_cache()
-        self.last_error = None  # Track errors to display to user
+        self.last_error = None
+        self._genre_artist_map: Dict[str, List[str]] = {}
+        if catalog_songs:
+            self._build_genre_artist_map(catalog_songs)
+
+    def _build_genre_artist_map(self, songs: List[Dict]) -> None:
+        """Map genre -> unique artist names from catalog songs."""
+        for song in songs:
+            genre = song['genre'].lower()
+            artist = song['artist']
+            if genre not in self._genre_artist_map:
+                self._genre_artist_map[genre] = []
+            if artist not in self._genre_artist_map[genre]:
+                self._genre_artist_map[genre].append(artist)
+
+    def get_artist_similarity(self, favorite_artist: str, song_artist: str) -> float:
+        """
+        Returns Last.fm match score (0.0-1.0) between favorite_artist and song_artist.
+        Reads from disk cache first; falls back to live API if online mode.
+        Returns 1.0 for exact match, 0.0 if not found or not cached.
+        """
+        fav = favorite_artist.strip().lower()
+        song = song_artist.strip().lower()
+
+        if fav == song:
+            return 1.0
+
+        similar_map = self._fetch_similar_artists_cached(favorite_artist)
+        return similar_map.get(song, 0.0)
+
+    def _fetch_similar_artists_cached(self, artist: str) -> Dict[str, float]:
+        """
+        Returns {artist_name_lower: match_score} for the given artist.
+        Reads from disk cache using 'artist_sim:<artist>' key.
+        Falls back to live API if use_lastfm=True and not cached.
+        """
+        cache_key = f"artist_sim:{artist.strip().lower()}"
+
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+
+        if not self.use_lastfm or not self.lastfm_api_key:
+            return {}
+
+        result = self._fetch_similar_artists(artist)
+        self.cache[cache_key] = result
+        self._save_cache()
+        return result
+
+    def _fetch_similar_artists(self, artist: str) -> Dict[str, float]:
+        """Call artist.getSimilar and return {artist_name_lower: match_score}."""
+        try:
+            params = {
+                "method": "artist.getSimilar",
+                "artist": artist,
+                "limit": 50,
+                "api_key": self.lastfm_api_key,
+                "format": "json",
+            }
+            response = requests.get("https://ws.audioscrobbler.com/2.0/", params=params, timeout=8)
+            response.raise_for_status()
+            data = response.json()
+
+            if "error" in data:
+                error_map = {10: "Invalid Last.fm API key", 6: "Artist not found", 29: "Rate limit exceeded"}
+                self.last_error = error_map.get(data["error"], data.get("message", "Last.fm error"))
+                return {}
+
+            artists = data.get("similarartists", {}).get("artist", [])
+            return {a["name"].lower(): float(a["match"]) for a in artists}
+
+        except Exception as e:
+            self.last_error = f"Last.fm API error: {str(e)}"
+            return {}
 
     def _load_cache(self) -> Dict:
         """Load genre similarity cache from JSON file."""
@@ -51,27 +134,83 @@ class GenreSimilarityEngine:
     def get_similarity(self, user_genre: str, song_genre: str) -> float:
         """
         Get similarity score between two genres (0.0 to 1.0).
-        Returns 1.0 if genres are identical.
-        Errors are cached and logged but don't crash the system.
+        Mode 1 (offline):  static graph only
+        Mode 2 (cached):   artist-bridged score from cache, fallback to static graph
+        Mode 3 (online):   artist-bridged score computed live, written to cache
         """
-        # Exact match
         if user_genre.lower() == song_genre.lower():
             return 1.0
 
-        # Try static graph first (always fast, no API call)
+        if self.use_live_similarity:
+            return self.compute_artist_bridged_similarity(user_genre, song_genre)
+
+        if self.use_cached_similarity:
+            return self._get_cached_similarity(user_genre, song_genre)
+
+        # Mode 1: static graph only
         static_score = self._get_static_similarity(user_genre, song_genre)
-        if static_score is not None:
-            return static_score
+        return static_score if static_score is not None else 0.0
 
-        # Fall back to Last.fm if online mode and not in static graph
-        if self.use_lastfm and self.lastfm_api_key:
-            score, error = self._get_lastfm_similarity(user_genre, song_genre)
-            if error:
-                self.last_error = error
-            return score
+    def _get_cached_similarity(self, genre_a: str, genre_b: str) -> float:
+        """Read artist-bridged similarity from cache. Falls back to static graph."""
+        cache_key = f"{genre_a.lower()}_{genre_b.lower()}"
+        val = self.cache.get(cache_key)
+        if isinstance(val, (int, float)):
+            return float(val)
+        static_score = self._get_static_similarity(genre_a, genre_b)
+        return static_score if static_score is not None else 0.0
 
-        # Default: 0.0 if not found
-        return 0.0
+    def compute_artist_bridged_similarity(self, genre_a: str, genre_b: str) -> float:
+        """
+        Compute artist-bridged genre similarity live via artist.getSimilar.
+        Degree 1: genre_a artist -> similar artist in genre_b catalog  (score × 1.0)
+        Degree 2: genre_a artist -> similar -> similar in genre_b      (score × match2 × 0.5)
+        Takes the maximum score found. Writes result to cache.
+        """
+        cache_key = f"{genre_a.lower()}_{genre_b.lower()}"
+        val = self.cache.get(cache_key)
+        if isinstance(val, (int, float)):
+            return float(val)
+
+        genre_a_artists = self._genre_artist_map.get(genre_a.lower(), [])
+        genre_b_artists_lower = {a.lower() for a in self._genre_artist_map.get(genre_b.lower(), [])}
+
+        if not genre_a_artists or not genre_b_artists_lower:
+            self.cache[cache_key] = 0.0
+            self._save_cache()
+            return 0.0
+
+        best_score = 0.0
+        print(f"  [Computing {genre_a} -> {genre_b} similarity...]", flush=True)
+
+        # Degree 1: genre_a artist -> similar artist directly in genre_b catalog
+        for artist_a in genre_a_artists:
+            similar_to_a = self._fetch_similar_artists_cached(artist_a)
+            for sim_name, match_score in similar_to_a.items():
+                if sim_name in genre_b_artists_lower:
+                    best_score = max(best_score, match_score)
+            if best_score >= 0.9:
+                break
+
+        # Degree 2: only if degree-1 found NO connection at all
+        if best_score == 0.0:
+            for artist_a in genre_a_artists:
+                similar_to_a = self._fetch_similar_artists_cached(artist_a)
+                top10 = sorted(similar_to_a.items(), key=lambda x: x[1], reverse=True)[:10]
+                for sim_artist, sim_score in top10:
+                    similar_to_sim = self._fetch_similar_artists_cached(sim_artist)
+                    for sim2_name, sim2_score in similar_to_sim.items():
+                        if sim2_name in genre_b_artists_lower:
+                            best_score = max(best_score, sim_score * sim2_score * 0.5)
+                    if best_score >= 0.9:
+                        break
+                if best_score >= 0.9:
+                    break
+
+        best_score = min(1.0, max(0.0, round(best_score, 4)))
+        self.cache[cache_key] = best_score
+        self._save_cache()
+        return best_score
 
     def _get_static_similarity(self, genre_a: str, genre_b: str) -> Optional[float]:
         """Check static graph for similarity score."""
@@ -86,96 +225,6 @@ class GenreSimilarityEngine:
                         return score
 
         return None
-
-    def _get_lastfm_similarity(self, genre_a: str, genre_b: str) -> Tuple[float, Optional[str]]:
-        """
-        Query Last.fm API to find similarity between genres.
-        Returns (similarity_score, error_message)
-        If error_message is not None, similarity_score should be ignored.
-        """
-        cache_key = f"{genre_a.lower()}_{genre_b.lower()}"
-
-        # Check cache first
-        if cache_key in self.cache:
-            result = self.cache[cache_key]
-            if isinstance(result, dict) and "error" in result:
-                return 0.0, result["error"]
-            if isinstance(result, (int, float)):
-                return float(result), None
-            return 0.0, None
-
-        # Query Last.fm for top artists of each genre, then score by overlap.
-        # Replaces tag.getSimilar which is deprecated and returns empty results.
-        def _fetch_top_artists(tag: str) -> Tuple[set, Optional[str]]:
-            url = "https://ws.audioscrobbler.com/2.0/"
-            params = {
-                "method": "tag.getTopArtists",
-                "tag": tag,
-                "limit": 30,
-                "api_key": self.lastfm_api_key,
-                "format": "json"
-            }
-            response = requests.get(url, params=params, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-
-            if "error" in data:
-                error_code = data.get("error")
-                error_map = {
-                    6: "Invalid parameters",
-                    10: "Invalid Last.fm API key",
-                    29: "Rate limit exceeded - please wait a moment and try again",
-                }
-                msg = error_map.get(error_code, data.get("message", f"Last.fm error code {error_code}"))
-                return set(), msg
-
-            artists = data.get("topartists", {}).get("artist", [])
-            return {a["name"].lower() for a in artists}, None
-
-        try:
-            artists_a, err = _fetch_top_artists(genre_a)
-            if err:
-                self.cache[cache_key] = {"error": err}
-                self._save_cache()
-                return 0.0, err
-
-            artists_b, err = _fetch_top_artists(genre_b)
-            if err:
-                self.cache[cache_key] = {"error": err}
-                self._save_cache()
-                return 0.0, err
-
-            if not artists_a or not artists_b:
-                self.cache[cache_key] = 0.0
-                self._save_cache()
-                return 0.0, None
-
-            # Jaccard similarity: overlap / union
-            overlap = len(artists_a & artists_b)
-            union = len(artists_a | artists_b)
-            similarity_score = round(overlap / union, 4) if union > 0 else 0.0
-
-            self.cache[cache_key] = similarity_score
-            self._save_cache()
-            return similarity_score, None
-
-        except requests.exceptions.Timeout:
-            timeout_msg = "Last.fm API timeout - please check your internet connection"
-            self.cache[cache_key] = {"error": timeout_msg}
-            self._save_cache()
-            return 0.0, timeout_msg
-
-        except requests.exceptions.HTTPError as e:
-            http_msg = f"Last.fm API error: {e.response.status_code}"
-            self.cache[cache_key] = {"error": http_msg}
-            self._save_cache()
-            return 0.0, http_msg
-
-        except Exception as e:
-            generic_msg = f"Last.fm API error: {str(e)}"
-            self.cache[cache_key] = {"error": generic_msg}
-            self._save_cache()
-            return 0.0, generic_msg
 
     def check_genre_exists_on_lastfm(self, genre: str) -> Tuple[bool, Optional[str]]:
         """
@@ -214,8 +263,11 @@ class GenreSimilarityEngine:
                 user_message = error_map.get(error_code, error_message)
                 return False, user_message
 
-            # If tag data exists, the genre is valid on Last.fm
-            if "tag" in data:
+            # A tag object is returned even for fake genres — check reach/taggings to confirm it's real
+            tag_data = data.get("tag", {})
+            reach = int(tag_data.get("reach", 0))
+            taggings = int(tag_data.get("taggings", 0))
+            if reach > 0 or taggings > 0:
                 return True, None
 
             return False, None
@@ -228,6 +280,85 @@ class GenreSimilarityEngine:
 
         except Exception as e:
             return False, f"Last.fm API error: {str(e)}"
+
+    def validate_genre_input(self, max_attempts: int = 2) -> str:
+        """
+        Interactive genre validation with API checking and intelligent retry logic.
+
+        Flow:
+        1. Prompt user for genre input
+        2. Check cache first (skip API if cached result found)
+        3. If not cached, query Last.fm API to validate genre
+        4. On 1st validation failure: ask user to retry (4A) or skip (4B)
+        5. On 2nd validation failure: auto-skip without asking (4B)
+
+        Returns: validated genre string or empty string to skip genre matching
+        """
+        for attempt in range(1, max_attempts + 1):
+            print(f"\n(Attempt {attempt}/{max_attempts})")
+            genre = input("Enter your favorite genre (or leave blank to skip): ").strip().lower()
+
+            # Allow blank to skip
+            if not genre:
+                print("  Skipping genre matching (will use other factors for recommendations)")
+                return ""
+
+            # Try to validate genre
+            validation_result = self._validate_genre(genre)
+
+            if validation_result["success"]:
+                print(f"  Confirmed genre: '{genre}'")
+                return genre
+
+            # Validation failed
+            if validation_result.get("error"):
+                print(f"  Error: {validation_result['error']}")
+
+            # Ask user what to do
+            if attempt < max_attempts:
+                # Not the last attempt - ask user
+                choice = input(f"  Try another genre (a) or skip genre? (b): ").strip().lower()
+                if choice == "b":
+                    print("  Skipping genre matching (will use other factors for recommendations)")
+                    return ""
+                # If 'a' or anything else, loop to next attempt
+            else:
+                # Last attempt failed - auto-skip without asking
+                print("  Skipping genre matching (will use other factors for recommendations)")
+                return ""
+
+        return ""
+
+    def _validate_genre(self, genre: str) -> Dict:
+        """
+        Validate a genre against cache and Last.fm API.
+        Returns {"success": bool, "error": optional_error_message}
+        Cache key format: "exists:<genre>"  Value: True or False (plain bool)
+        """
+        cache_key = f"exists:{genre.lower()}"
+
+        if cache_key in self.cache:
+            val = self.cache[cache_key]
+            if val is True:
+                return {"success": True}
+            if val is False:
+                return {"success": False, "error": f"Genre '{genre}' not found on Last.fm"}
+
+        if not self.use_lastfm:
+            return {"success": False, "error": f"Genre '{genre}' not in cache"}
+
+        exists, error = self.check_genre_exists_on_lastfm(genre)
+
+        if error:
+            # Don't cache transient errors (timeout, rate limit)
+            return {"success": False, "error": error}
+
+        self.cache[cache_key] = exists
+        self._save_cache()
+
+        if exists:
+            return {"success": True}
+        return {"success": False, "error": f"Genre '{genre}' not found on Last.fm"}
 
 
 @dataclass
@@ -362,68 +493,108 @@ def _score_song(user_prefs: Dict, song: Dict, genre_engine: Optional['GenreSimil
     """
     Calculate recommendation score using mood-first metric.
 
-    score = (mood_match × 0.40) +
-            (genre_similarity × 0.30) +
-            (1 - |energy_distance| × 0.20) +
-            (acoustic_match × 0.10)
+    Without favorite_artist (modes 1 & 2 — unchanged):
+        score = (mood × 0.40) + (genre × 0.30) + (energy × 0.20) + (acoustic × 0.10)
+
+    With favorite_artist (mode 3 — online):
+        score = (mood × 0.35) + (genre × 0.25) + (artist × 0.25) + (energy × 0.10) + (acoustic × 0.05)
 
     Returns a score between 0 and 1.0 (higher is better).
     """
     if genre_engine is None:
         genre_engine = GenreSimilarityEngine(use_lastfm=False)
 
-    # Mood match (0.40 weight) - primary filter
-    mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
-    mood_score = mood_match * 0.40
+    favorite_artist = user_prefs.get('favorite_artist', '').strip()
+    use_artist = bool(favorite_artist) and (genre_engine.use_lastfm or genre_engine.use_cached_similarity)
 
-    # Genre similarity (0.30 weight) - now supports adjacent genres
-    genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
-    genre_score = genre_similarity * 0.30
+    if use_artist:
+        # Online mode weights
+        mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
+        mood_score = mood_match * 0.35
 
-    # Energy distance (0.20 weight) - fine-tuning
-    energy_distance = abs(song['energy'] - user_prefs['energy'])
-    energy_score = (1.0 - energy_distance) * 0.20
+        genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
+        genre_score = genre_similarity * 0.25
 
-    # Acoustic match (0.10 weight) - tiebreaker
-    is_acoustic = song['acousticness'] > 0.5
-    user_likes_acoustic = user_prefs.get('likes_acoustic', False)
-    acoustic_match = 1.0 if is_acoustic == user_likes_acoustic else 0.0
-    acoustic_score = acoustic_match * 0.10
+        artist_similarity = genre_engine.get_artist_similarity(favorite_artist, song['artist'])
+        artist_score = artist_similarity * 0.25
 
-    return mood_score + genre_score + energy_score + acoustic_score
+        energy_distance = abs(song['energy'] - user_prefs['energy'])
+        energy_score = (1.0 - energy_distance) * 0.10
+
+        is_acoustic = song['acousticness'] > 0.5
+        acoustic_match = 1.0 if is_acoustic == user_prefs.get('likes_acoustic', False) else 0.0
+        acoustic_score = acoustic_match * 0.05
+
+        return mood_score + genre_score + artist_score + energy_score + acoustic_score
+
+    else:
+        # Offline/enhanced mode — original weights, untouched
+        mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
+        mood_score = mood_match * 0.40
+
+        genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
+        genre_score = genre_similarity * 0.30
+
+        energy_distance = abs(song['energy'] - user_prefs['energy'])
+        energy_score = (1.0 - energy_distance) * 0.20
+
+        is_acoustic = song['acousticness'] > 0.5
+        acoustic_match = 1.0 if is_acoustic == user_prefs.get('likes_acoustic', False) else 0.0
+        acoustic_score = acoustic_match * 0.10
+
+        return mood_score + genre_score + energy_score + acoustic_score
 
 
 def _get_component_scores(user_prefs: Dict, song: Dict, genre_engine: Optional['GenreSimilarityEngine'] = None) -> Dict:
     """
     Calculate individual component scores for explanation purposes.
-    Returns dict with mood, genre, energy, acoustic, and total scores.
+    Returns dict with mood, genre, artist, energy, acoustic, and total scores.
+    artist score is 0.0 in offline/enhanced modes.
     """
     if genre_engine is None:
         genre_engine = GenreSimilarityEngine(use_lastfm=False)
 
-    # Mood match (0.40 weight)
-    mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
-    mood_score = mood_match * 0.40
+    favorite_artist = user_prefs.get('favorite_artist', '').strip()
+    use_artist = bool(favorite_artist) and (genre_engine.use_lastfm or genre_engine.use_cached_similarity)
 
-    # Genre similarity (0.30 weight)
-    genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
-    genre_score = genre_similarity * 0.30
+    if use_artist:
+        mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
+        mood_score = mood_match * 0.35
 
-    # Energy distance (0.20 weight)
-    energy_distance = abs(song['energy'] - user_prefs['energy'])
-    energy_score = (1.0 - energy_distance) * 0.20
+        genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
+        genre_score = genre_similarity * 0.25
 
-    # Acoustic match (0.10 weight)
-    is_acoustic = song['acousticness'] > 0.5
-    user_likes_acoustic = user_prefs.get('likes_acoustic', False)
-    acoustic_match = 1.0 if is_acoustic == user_likes_acoustic else 0.0
-    acoustic_score = acoustic_match * 0.10
+        artist_similarity = genre_engine.get_artist_similarity(favorite_artist, song['artist'])
+        artist_score = artist_similarity * 0.25
 
-    total_score = mood_score + genre_score + energy_score + acoustic_score
+        energy_distance = abs(song['energy'] - user_prefs['energy'])
+        energy_score = (1.0 - energy_distance) * 0.10
+
+        is_acoustic = song['acousticness'] > 0.5
+        acoustic_match = 1.0 if is_acoustic == user_prefs.get('likes_acoustic', False) else 0.0
+        acoustic_score = acoustic_match * 0.05
+    else:
+        mood_match = 1.0 if song['mood'] == user_prefs['mood'] else 0.0
+        mood_score = mood_match * 0.40
+
+        genre_similarity = genre_engine.get_similarity(user_prefs['genre'], song['genre'])
+        genre_score = genre_similarity * 0.30
+
+        artist_score = 0.0
+
+        energy_distance = abs(song['energy'] - user_prefs['energy'])
+        energy_score = (1.0 - energy_distance) * 0.20
+
+        is_acoustic = song['acousticness'] > 0.5
+        acoustic_match = 1.0 if is_acoustic == user_prefs.get('likes_acoustic', False) else 0.0
+        acoustic_score = acoustic_match * 0.10
+
+    total_score = mood_score + genre_score + artist_score + energy_score + acoustic_score
 
     return {
         'mood': mood_score,
         'genre': genre_score,
+        'artist': artist_score,
         'energy': energy_score,
         'acoustic': acoustic_score,
         'total': total_score,

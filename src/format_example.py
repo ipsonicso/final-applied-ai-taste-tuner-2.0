@@ -1,4 +1,4 @@
-"""
+""" (From week 7)
 Example output format combining:
 - Option 4: Bar chart visualization
 - Option 7: Summary + Detailed breakdown

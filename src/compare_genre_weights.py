@@ -1,9 +1,9 @@
 """
-Comparison test: Original mood-first vs. Genre-weighted recommendations
+Comparison test (from week 7): Original mood-first vs. Genre-weighted recommendations
 Shows how recommendations change when genre weight increases to 0.50
 """
 
-from recommender import load_songs, Song, UserProfile, Recommender
+from recommender import load_songs
 
 def get_component_scores_original(user_prefs, song):
     """Original: mood 0.40, genre 0.30, energy 0.20, acoustic 0.10"""

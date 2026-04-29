@@ -1,0 +1,46 @@
+id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
+1,The One That Got Away,Katy Perry,pop,happy,0.83,123,0.88,0.79,0.12
+2,Locked Out of Heaven,Bruno Mars,pop,happy,0.81,128,0.89,0.88,0.12
+3,Love You Like a Love Song,Selena Gomez & the Scene,pop,happy,0.88,134,0.81,0.74,0.21
+4,no tears left to cry,Ariana Grande,pop,intense,0.77,116,0.79,0.87,0.25
+5,Pink Pony Club,Chappell Roan,pop,happy,0.87,124,0.86,0.8,0.08
+6,Space Song,Beach House,indie pop,chill,0.76,118,0.76,0.63,0.37
+7,There Is a Light That Never Goes Out - 2011 Remaster,The Smiths,indie pop,happy,0.64,124,0.67,0.76,0.37
+8,Out of My League,Fitz and the Tantrums,indie pop,chill,0.71,106,0.77,0.63,0.24
+9,Sofia,Clairo,indie pop,chill,0.59,111,0.72,0.76,0.33
+10,Pumped Up Kicks,Foster the People,indie pop,chill,0.65,105,0.73,0.69,0.18
+11,Sweater Weather,The Neighbourhood,indie,relaxed,0.67,120,0.66,0.58,0.36
+12,A Little Death,The Neighbourhood,indie,moody,0.6,92,0.72,0.59,0.52
+13,Why'd You Only Call Me When You're High?,Arctic Monkeys,indie,relaxed,0.53,107,0.77,0.55,0.46
+14,I Thought I Saw Your Face Today,She & Him,indie,relaxed,0.66,114,0.62,0.69,0.65
+15,505,Arctic Monkeys,indie,relaxed,0.45,114,0.65,0.6,0.5
+16,Sign of the Times,Harry Styles,rock,intense,0.75,141,0.61,0.71,0.13
+17,The Chain - 2004 Remaster,Fleetwood Mac,rock,intense,0.76,155,0.52,0.52,0.08
+18,"Lover, You Should've Come Over",Jeff Buckley,rock,moody,0.79,134,0.54,0.56,0.07
+19,Iris,Goo Goo Dolls,rock,moody,0.95,132,0.55,0.6,0.06
+20,Everlong,Foo Fighters,rock,moody,0.86,152,0.44,0.69,0.1
+21,We Are the People,Empire of the Sun,electronic,intense,0.77,126,0.58,0.86,0.12
+22,Instant Crush (feat. Julian Casablancas),Daft Punk,electronic,focused,0.79,144,0.52,0.77,0.09
+23,On Melancholy Hill,Gorillaz,electronic,intense,0.83,129,0.7,0.83,0.1
+24,Feel Good Inc.,Gorillaz,electronic,focused,0.78,134,0.49,0.8,0.09
+25,Walking on a Dream,Empire of the Sun,electronic,focused,0.84,124,0.52,0.86,0.07
+26,Blinding Lights,The Weeknd,synthwave,chill,0.82,107,0.51,0.74,0.23
+27,Resonance,Home,synthwave,chill,0.65,116,0.44,0.64,0.09
+28,I CAN'T STOP ME,TWICE,synthwave,moody,0.67,120,0.63,0.74,0.16
+29,Apple,Charli xcx,synthwave,chill,0.73,122,0.51,0.72,0.18
+30,Roller Mobster,Carpenter Brut,synthwave,moody,0.78,112,0.64,0.72,0.15
+31,Subwoofer Lullaby,C418,ambient,chill,0.38,55,0.73,0.31,0.84
+32,Mice on Venus,C418,ambient,relaxed,0.22,63,0.63,0.43,0.93
+33,Living Mice,C418,ambient,chill,0.39,59,0.66,0.46,0.81
+34,Minecraft,C418,ambient,relaxed,0.38,63,0.57,0.49,0.77
+35,Key,C418,ambient,chill,0.33,72,0.54,0.45,0.78
+36,Will He,Joji,lofi,focused,0.49,74,0.67,0.49,0.86
+37,Kids,Current Joys,lofi,chill,0.36,76,0.56,0.59,0.6
+38,Catdelions IIS,UrvTek,lofi,chill,0.43,68,0.63,0.61,0.83
+39,CAN'T GET OVER YOU (feat. Clams Casino),Joji,lofi,chill,0.38,73,0.62,0.53,0.69
+40,Asleep Among Endives,Ichiko Aoba,lofi,chill,0.47,89,0.53,0.54,0.61
+41,Like a Tattoo,Sade,jazz,chill,0.43,108,0.67,0.5,0.86
+42,Paradise,Sade,jazz,chill,0.47,106,0.71,0.57,0.84
+43,I Fall in Love Too Easily,Chet Baker,jazz,relaxed,0.42,83,0.65,0.53,0.75
+44,Back to Black,Amy Winehouse,jazz,relaxed,0.5,100,0.78,0.54,0.77
+45,My Way,Frank Sinatra,jazz,chill,0.4,83,0.62,0.53,0.79
