@@ -1,6 +1,4 @@
 # Final Project: Taste Tuner 2.0
-    Explicitly name your original project (from Modules 1-3) and 
-    provide a 2-3 sentence summary of its original goals and capabilities.    
   **Background:**
   On week 7 I developed **Taste Tuner**, a music recommendation system, to simulate the algorithms used in "recommended playlist" systems in industry-leading music apps.
   [Taste Tuner 1.0](https://github.com/ipsonicso/ai110-module3show-musicrecommendersimulation-starter) pulls song attributes (particularly *Mood, Genre, Energy, Acousticness*) from a .csv file, takes user text input from a list of predefined attributes, and matches the user with the top 5 songs, ranked by how well they meet the user-set criteria.    
