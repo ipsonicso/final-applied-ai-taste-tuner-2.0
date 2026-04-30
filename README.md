@@ -38,11 +38,12 @@
 
 
 ### Sample Interactions
-  ![Demo LOOM or gif](assets/demo1.gif)
-  ![Demo LOOM or gif](assets/demo2.gif)
-  ![Demo LOOM or gif](assets/demo3.gif)
+  Short Demo
+  <https://www.loom.com/share/d878a88817c14aacb4fb4a2ded710c3a>
   
-
+  Long Demo
+  <https://www.loom.com/share/4aff607d2391487e9284bf67cfc3a0c4>
+  
 ### Design Decisions
 - When brainstorming ways to enhance the system from 1.0, I remembered this website that interested me when I was younger, before I learned how to work with APIs in this class.
 - last.fm, a music statistics tracker that aggregates listening habits, trends across big platforms.
