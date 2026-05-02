@@ -33,7 +33,25 @@
     ```
     python -m src.main
     ```
-
+**OR**
+ To test multiple cases at once, run the script **input-edit.py**: 
+     ```
+    python -m src.input-edit
+    ```
+   To change the tests, edit the contents of **input-test.json** in the format:
+   ```
+   {
+   "name":"[name choice]",
+    "inputs": [each menu selection],
+    "expect": [searches results for >= number from 0 to 1],
+   }
+   ```
+   For online mode you must input an API key, obtained from [last.fm](https://www.last.fm/api/accounts) in this format
+   ```
+   {
+     "inputs": ["3", "[API KEY]", "2", "chill", "0.4", "n", "indie", "arctic monkeys"],
+   }
+   ```
 
 ### Sample Interactions
   Short Demo
