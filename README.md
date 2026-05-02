@@ -49,7 +49,9 @@
    For online mode you must input an API key, obtained from [last.fm](https://www.last.fm/api/accounts) in this format
    ```
    {
+   ...
      "inputs": ["3", "[API KEY]", "2", "chill", "0.4", "n", "indie", "arctic monkeys"],
+   ...
    }
    ```
 
@@ -66,19 +68,22 @@
 **PLAN**
 - I decided to design my program for testing with 3 modes
     1) the original iteration of the project
-    2) an online version that
-        - uses a music aggregator's statistics for live and relevant tag information
-        - saves relationships between genres to a local offline dictionary 
-    4) an offline enhanced version that
+    2) an offline enhanced version that
         - uses the offline dictionary for genre information
         - the online version would default to this when not connected or API problems
+    3) an online version that
+        - uses a music aggregator's statistics for live and relevant tag information
+        - saves relationships between genres to a local offline dictionary 
 **Roadblock**
 - I remembered I already obtained an API key, but I didn't remember that the most relevant method, *tag.getSimilar*, open to public use was broken and did not match the functioning version on the website.
 **Tradeoffs**
 - I still wanted to use the API since I knew every other function I tried had worked, so I used Claude to brainstorm possible workarounds.
 - I decided that, since artists also have genre attributes, I could workaround by populating songs2.csv with real song data, use a method to get a similar artists, check their tags for overlap, then check those artists' genres for overlap in songs2.csv.
 - Not very efficient way to search for genre overlap, but it saves relationships to local dictionary, so there will be fewer api calls with continued use.
-  
+
+**Iterations on Plan:**
+1) _ tests _ 
+
 ### Testing Summary 
 1) I originally planned to use a useful feature that didn't work (tag comparison), so I used a workaround, importing real song information, approximating stats by the program's metrics, and compare artist tags on artists' profiles instead.
  
