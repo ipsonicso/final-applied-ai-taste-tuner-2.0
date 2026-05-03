@@ -1,8 +1,8 @@
 # 🎧 Model Card: Music Recommender Simulation
 
-## Model Name : Taste Tuner 2.0
+## 1. Model Name : Taste Tuner 2.0
 ---
-## Intended Use  
+## 2. Intended Use  
 
 - The model uses user profile for preferences in mood, genre, energy, acousticness, and possibly artist to compare to song.csv weighed on a scale of 0.0 to 0.1 match.
 - The model suggests the top 5 songs, ranked by relevance to that taste profile.
