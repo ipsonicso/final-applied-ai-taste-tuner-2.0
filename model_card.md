@@ -15,13 +15,13 @@
 
 ## 3. How the Model Works  
 
-> The model uses Mood, Genre, Energy, Acousticness
-> Adding up to 1.0
+ The model uses Mood, Genre, Energy, Acousticness
+ Adding up to 1.0:
 > score = 
->   (genre_match * 0.4) +           # Most important
->   (mood_match * 0.3) +            # Very important
->   (1 - |energy_distance| * 0.2) + # Continuous tuning
->   (acoustic_match * 0.1)          # Tiebreaker
+>   (genre_match * 0.4) + 
+>   (mood_match * 0.3) +  
+>   (1 - |energy_distance| * 0.2) + 
+>   (acoustic_match * 0.1)
 
 ---
 
